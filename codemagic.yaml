@@ -1,0 +1,51 @@
+workflows:
+  android-release:
+    name: AsharafChat Android Release
+    max_build_duration: 60
+    instance_type: linux_x2
+    environment:
+      flutter: stable
+      android_signing:
+        - asharafchat_keystore   # set this reference name up in Codemagic > Team settings > Code signing identities > Android keystores
+      groups:
+        - firebase_credentials    # optional, only if you store secrets as env vars instead of the file below
+      vars:
+        PACKAGE_NAME: "com.jiyaad.asharaf_chat"
+
+    scripts:
+      - name: Generate android/ and ios/ folders (only if missing)
+        script: |
+          #!/usr/bin/env sh
+          set -e
+          if [ ! -d android ]; then
+            echo "No android/ folder found — generating with flutter create..."
+            flutter create --platforms=android,ios --org com.jiyaad .
+          else
+            echo "android/ folder already present — skipping flutter create."
+          fi
+
+      - name: Place Firebase config file
+        script: |
+          #!/usr/bin/env sh
+          set -e
+          mkdir -p android/app
+          if [ -f firebase_config/google-services.json ]; then
+            cp firebase_config/google-services.json android/app/google-services.json
+            echo "Copied google-services.json into android/app/"
+          else
+            echo "WARNING: firebase_config/google-services.json not found — Firebase will not work until you add it."
+          fi
+
+      - name: Get Flutter packages
+        script: flutter pub get
+
+      - name: Build signed release APK
+        script: flutter build apk --release
+
+    artifacts:
+      - build/app/outputs/flutter-apk/*.apk
+      - build/app/outputs/**/mapping.txt
+
+    publishing:
+      email:
+        recipients: []   # add your email here if you want a notification with the APK link each build
